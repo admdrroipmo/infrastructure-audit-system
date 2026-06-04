@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 5000;
 // Import routes
 const adminRoutes = require("./api/routes/v1/admin.routes");
 const authRoutes = require("./api/routes/v1/auth.routes");
+const formBuilderRoutes = require("./api/routes/v1/formBuilder.routes");
 
 // Middleware
 app.use(cors());
@@ -18,6 +19,7 @@ app.use(express.json());
 // Use routes
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/formBuilder", formBuilderRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {
