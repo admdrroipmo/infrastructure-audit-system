@@ -1,0 +1,7 @@
+echo "# Dependencies" > .gitignore
+echo "node_modules/" >> .gitignore
+echo ".env" >> .gitignore
+echo ".env.local" >> .gitignore
+echo ".next/" >> .gitignore
+echo ".prisma/" >> .gitignore
+echo ".git/" >> .gitignore
