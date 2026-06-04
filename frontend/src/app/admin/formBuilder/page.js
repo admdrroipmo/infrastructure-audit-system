@@ -9,6 +9,7 @@ import {
   List,
   Edit2,
   X,
+  ChevronRight,
 } from "lucide-react";
 
 export default function FormBuilder() {
@@ -87,7 +88,7 @@ export default function FormBuilder() {
         validation:
           modalType === "FIELD" ? { required: newElement.required } : null,
         order: elements.length,
-        parentId: newElement.parentId,
+        parentId: newElement.parentId || null,
       };
 
       const res = await fetch(
@@ -119,6 +120,77 @@ export default function FormBuilder() {
       fetchElements();
     } catch (error) {
       console.error("Error adding element:", error);
+      alert(error.message);
+    }
+  };
+
+  const handleEditElement = async () => {
+    try {
+      let options = null;
+      let scoreConfig = null;
+
+      if (editingElement.fieldType === "SELECT") {
+        if (newElement.options) {
+          options = newElement.options.split(",").map((opt) => opt.trim());
+        }
+        if (newElement.scoreConfig) {
+          try {
+            scoreConfig = JSON.parse(newElement.scoreConfig);
+          } catch (e) {
+            alert(
+              "Invalid JSON format for score configuration. Please check your syntax.",
+            );
+            return;
+          }
+        }
+      }
+
+      const elementData = {
+        fieldLabel:
+          editingElement.elementType === "FIELD"
+            ? newElement.fieldLabel
+            : newElement.titleName,
+        fieldKey:
+          editingElement.elementType === "FIELD" ? newElement.fieldKey : null,
+        fieldType:
+          editingElement.elementType === "FIELD" ? newElement.fieldType : null,
+        options: options,
+        validation:
+          editingElement.elementType === "FIELD"
+            ? { required: newElement.required }
+            : null,
+        parentId: newElement.parentId || null,
+      };
+
+      const res = await fetch(
+        `http://localhost:5000/api/v1/formBuilder/fields/${editingElement.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(elementData),
+        },
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to update element");
+      }
+
+      setShowModal(false);
+      setEditingElement(null);
+      setNewElement({
+        titleName: "",
+        fieldKey: "",
+        fieldLabel: "",
+        fieldType: "TEXT",
+        options: "",
+        scoreConfig: "",
+        required: false,
+        parentId: null,
+      });
+      fetchElements();
+    } catch (error) {
+      console.error("Error updating element:", error);
       alert(error.message);
     }
   };
@@ -198,6 +270,34 @@ export default function FormBuilder() {
     setShowModal(true);
   };
 
+  const openEditModal = (element) => {
+    setEditingElement(element);
+    setModalType(element.elementType);
+    if (element.elementType === "FIELD") {
+      setNewElement({
+        fieldKey: element.fieldKey || "",
+        fieldLabel: element.fieldLabel || "",
+        fieldType: element.fieldType || "TEXT",
+        options: element.options?.join(",") || "",
+        scoreConfig: "",
+        required: element.validation?.required || false,
+        parentId: element.parentId || null,
+      });
+    } else {
+      setNewElement({
+        titleName: element.fieldLabel || "",
+        fieldKey: "",
+        fieldLabel: "",
+        fieldType: "TEXT",
+        options: "",
+        scoreConfig: "",
+        required: false,
+        parentId: element.parentId || null,
+      });
+    }
+    setShowModal(true);
+  };
+
   const getElementIcon = (type) => {
     switch (type) {
       case "TITLE":
@@ -211,6 +311,13 @@ export default function FormBuilder() {
     }
   };
 
+  const getElementIndent = (element) => {
+    if (element.elementType === "TITLE") return "ml-0";
+    if (element.elementType === "SUBTITLE") return "ml-4";
+    if (element.elementType === "FIELD") return "ml-8";
+    return "ml-0";
+  };
+
   const renderElement = (element, index) => {
     const isTitle = element.elementType === "TITLE";
     const isSubtitle = element.elementType === "SUBTITLE";
@@ -219,7 +326,7 @@ export default function FormBuilder() {
     return (
       <div
         key={element.id}
-        className={`flex items-center justify-between p-3 rounded-lg ${isTitle ? "bg-blue-50" : isSubtitle ? "bg-purple-50" : "bg-slate-50"}`}
+        className={`flex items-center justify-between p-3 rounded-lg ${isTitle ? "bg-blue-50" : isSubtitle ? "bg-purple-50" : "bg-slate-50"} ${getElementIndent(element)}`}
       >
         <div className="flex items-center gap-3 flex-1">
           <span className="text-sm font-medium text-slate-500">
@@ -256,6 +363,12 @@ export default function FormBuilder() {
             disabled={index === elements.length - 1}
           >
             <MoveDown className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => openEditModal(element)}
+            className="p-1 hover:bg-blue-100 rounded text-blue-600"
+          >
+            <Edit2 className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleDeleteElement(element.id)}
@@ -337,13 +450,13 @@ export default function FormBuilder() {
         )}
       </div>
 
-      {/* Add Element Modal */}
+      {/* Add/Edit Element Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="glass-card p-6 max-w-md w-full">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-blue-600">
-                Add{" "}
+                {editingElement ? "Edit" : "Add"}{" "}
                 {modalType === "TITLE"
                   ? "Title"
                   : modalType === "SUBTITLE"
@@ -361,7 +474,7 @@ export default function FormBuilder() {
               {(modalType === "TITLE" || modalType === "SUBTITLE") && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Title Name
+                    {modalType === "TITLE" ? "Title Name" : "Subtitle Name"}
                   </label>
                   <input
                     type="text"
@@ -373,7 +486,11 @@ export default function FormBuilder() {
                         titleName: e.target.value,
                       })
                     }
-                    placeholder="e.g., Screener Information"
+                    placeholder={
+                      modalType === "TITLE"
+                        ? "e.g., Screener Information"
+                        : "e.g., Personal Details"
+                    }
                   />
                 </div>
               )}
@@ -496,10 +613,12 @@ export default function FormBuilder() {
               )}
               <div className="flex gap-3 mt-4">
                 <button
-                  onClick={handleAddElement}
+                  onClick={
+                    editingElement ? handleEditElement : handleAddElement
+                  }
                   className="btn-primary flex-1"
                 >
-                  Add Element
+                  {editingElement ? "Update" : "Add"} Element
                 </button>
                 <button
                   onClick={() => setShowModal(false)}
