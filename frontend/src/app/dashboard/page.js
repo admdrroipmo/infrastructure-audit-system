@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Users, Settings, FormInput, MapPin } from "lucide-react";
+import { Users, Settings, FormInput, MapPin, LogOut } from "lucide-react";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -19,6 +19,12 @@ export default function DashboardPage() {
     setLoading(false);
   }, [router]);
 
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    router.push("/login");
+  };
+
   if (loading) {
     return <div className="page-container text-center py-12">Loading...</div>;
   }
@@ -27,8 +33,17 @@ export default function DashboardPage() {
     <div className="page-container">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-blue-600">Dashboard</h1>
-        <div className="text-sm text-slate-500">
-          👤 {user?.accessLevel || "User"}
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-slate-500">
+            👤 {user?.accessLevel || "User"}
+          </div>
+          <button
+            onClick={handleLogout}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
         </div>
       </div>
 
