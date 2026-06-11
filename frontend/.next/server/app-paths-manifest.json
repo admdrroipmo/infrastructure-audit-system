@@ -1,0 +1,5 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/forms/form1/page": "app/forms/form1/page.js",
+  "/superadmin/users/edit/[id]/page": "app/superadmin/users/edit/[id]/page.js"
+}
