@@ -19,8 +19,17 @@ router.get("/users", async (req, res) => {
 // Create a new user
 router.post("/users", async (req, res) => {
   try {
-    const { fullName, email, password, psgcId, accessLevel } = req.body;
+    const {
+      fullName,
+      email,
+      password,
+      psgcId,
+      accessLevel,
+      userType,
+      locationType,
+    } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
+
     const user = await prisma.user.create({
       data: {
         fullName,
@@ -28,10 +37,13 @@ router.post("/users", async (req, res) => {
         passwordHash: hashedPassword,
         psgcId,
         accessLevel,
+        userType: userType || null,
+        locationType: locationType || null, // ← NEW FIELD
       },
     });
     res.json(user);
   } catch (error) {
+    console.error("Error creating user:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -57,6 +69,44 @@ router.get("/psgc", async (req, res) => {
   try {
     const psgc = await prisma.psgcLocation.findMany();
     res.json(psgc);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get a single PSGC location with its hierarchy
+router.get("/psgc/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const psgc = await prisma.psgcLocation.findUnique({
+      where: { id },
+      include: {
+        parent: {
+          include: {
+            parent: true, // Get grandparent (region)
+          },
+        },
+      },
+    });
+    if (!psgc)
+      return res.status(404).json({ error: "PSGC location not found" });
+
+    // Build the hierarchy result
+    const result = {
+      id: psgc.id,
+      name: psgc.name,
+      type: psgc.type,
+      coordinates: null, // You can add coordinates to the PsgcLocation model if needed
+    };
+
+    if (psgc.type === "PROVINCE" || psgc.type === "HUC") {
+      result.region = psgc.parent;
+    } else if (psgc.type === "CITY" || psgc.type === "MUNICIPALITY") {
+      result.province = psgc.parent;
+      result.region = psgc.parent?.parent;
+    }
+
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

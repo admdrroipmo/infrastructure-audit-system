@@ -9,14 +9,13 @@ import {
   List,
   Edit2,
   X,
-  ChevronRight,
+  MapPin,
 } from "lucide-react";
 
 export default function FormBuilder() {
   const [formType, setFormType] = useState("FORM1");
   const [elements, setElements] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState(""); // "TITLE", "SUBTITLE", "FIELD"
   const [editingElement, setEditingElement] = useState(null);
   const [newElement, setNewElement] = useState({
     titleName: "",
@@ -42,11 +41,7 @@ export default function FormBuilder() {
       const res = await fetch(
         `http://localhost:5000/api/v1/formBuilder/fields/${formType}`,
       );
-
-      if (!res.ok) {
-        throw new Error(`Failed to fetch elements: ${res.status}`);
-      }
-
+      if (!res.ok) throw new Error(`Failed to fetch elements: ${res.status}`);
       const data = await res.json();
       setElements(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -58,38 +53,76 @@ export default function FormBuilder() {
     }
   };
 
+  const hasLocationPackage = elements.some(
+    (el) => el.elementType === "LOCATION_PACKAGE",
+  );
+
   const handleAddElement = async () => {
     try {
-      let options = null;
-      let scoreConfig = null;
-
-      if (modalType === "FIELD" && newElement.fieldType === "SELECT") {
-        options = newElement.options.split(",").map((opt) => opt.trim());
-        if (newElement.scoreConfig) {
-          try {
-            scoreConfig = JSON.parse(newElement.scoreConfig);
-          } catch (e) {
-            alert(
-              "Invalid JSON format for score configuration. Please check your syntax.",
-            );
-            return;
-          }
-        }
+      // ─── Validation ──────────────────────────────────────────────────
+      if (
+        newElement.fieldType !== "LOCATION_PACKAGE" &&
+        !newElement.fieldLabel.trim()
+      ) {
+        alert("Field Label is required.");
+        return;
       }
 
-      const elementData = {
-        formType,
-        elementType: modalType,
-        fieldKey: modalType === "FIELD" ? newElement.fieldKey : null,
-        fieldLabel:
-          modalType === "FIELD" ? newElement.fieldLabel : newElement.titleName,
-        fieldType: modalType === "FIELD" ? newElement.fieldType : null,
-        options: options,
-        validation:
-          modalType === "FIELD" ? { required: newElement.required } : null,
-        order: elements.length,
-        parentId: newElement.parentId || null,
-      };
+      let elementData = {};
+
+      // ─── Handle Location Package ──────────────────────────────────
+      if (newElement.fieldType === "LOCATION_PACKAGE") {
+        elementData = {
+          formType,
+          elementType: "LOCATION_PACKAGE",
+          fieldKey: "location_data",
+          fieldLabel: newElement.titleName || "Building Location",
+          fieldType: null,
+          options: null,
+          validation: null,
+          order: elements.length,
+          parentId: newElement.parentId || null,
+        };
+      } else {
+        // ─── Handle TITLE, SUBTITLE, and FIELD ──────────────────────
+        let options = null;
+        let scoreConfig = null;
+        if (newElement.fieldType === "SELECT") {
+          options = newElement.options.split(",").map((opt) => opt.trim());
+          if (newElement.scoreConfig) {
+            try {
+              scoreConfig = JSON.parse(newElement.scoreConfig);
+            } catch (e) {
+              alert("Invalid JSON format for score configuration.");
+              return;
+            }
+          }
+        }
+
+        elementData = {
+          formType,
+          elementType:
+            newElement.fieldType === "TITLE" ||
+            newElement.fieldType === "SUBTITLE"
+              ? newElement.fieldType
+              : "FIELD",
+          fieldKey:
+            newElement.fieldType === "FIELD" ? newElement.fieldKey : null,
+          fieldLabel:
+            newElement.fieldType === "FIELD"
+              ? newElement.fieldLabel
+              : newElement.titleName,
+          fieldType:
+            newElement.fieldType === "FIELD" ? newElement.fieldType : null,
+          options: options,
+          validation:
+            newElement.fieldType === "FIELD"
+              ? { required: newElement.required }
+              : null,
+          order: elements.length,
+          parentId: newElement.parentId || null,
+        };
+      }
 
       const res = await fetch(
         "http://localhost:5000/api/v1/formBuilder/fields",
@@ -106,7 +139,7 @@ export default function FormBuilder() {
       }
 
       setShowModal(false);
-      setModalType("");
+      setEditingElement(null);
       setNewElement({
         titleName: "",
         fieldKey: "",
@@ -137,9 +170,7 @@ export default function FormBuilder() {
           try {
             scoreConfig = JSON.parse(newElement.scoreConfig);
           } catch (e) {
-            alert(
-              "Invalid JSON format for score configuration. Please check your syntax.",
-            );
+            alert("Invalid JSON format for score configuration.");
             return;
           }
         }
@@ -204,9 +235,7 @@ export default function FormBuilder() {
           method: "DELETE",
         },
       );
-      if (!res.ok) {
-        throw new Error("Failed to delete element");
-      }
+      if (!res.ok) throw new Error("Failed to delete element");
       fetchElements();
     } catch (error) {
       console.error("Error deleting element:", error);
@@ -254,27 +283,11 @@ export default function FormBuilder() {
     fetchElements();
   };
 
-  const openAddModal = (type) => {
-    setModalType(type);
-    setEditingElement(null);
-    setNewElement({
-      titleName: "",
-      fieldKey: "",
-      fieldLabel: "",
-      fieldType: "TEXT",
-      options: "",
-      scoreConfig: "",
-      required: false,
-      parentId: null,
-    });
-    setShowModal(true);
-  };
-
   const openEditModal = (element) => {
     setEditingElement(element);
-    setModalType(element.elementType);
     if (element.elementType === "FIELD") {
       setNewElement({
+        titleName: "",
         fieldKey: element.fieldKey || "",
         fieldLabel: element.fieldLabel || "",
         fieldType: element.fieldType || "TEXT",
@@ -298,56 +311,38 @@ export default function FormBuilder() {
     setShowModal(true);
   };
 
-  const getElementIcon = (type) => {
-    switch (type) {
-      case "TITLE":
-        return <Type className="w-4 h-4 text-blue-600" />;
-      case "SUBTITLE":
-        return <Edit2 className="w-4 h-4 text-purple-600" />;
-      case "FIELD":
-        return <List className="w-4 h-4 text-green-600" />;
-      default:
-        return null;
-    }
-  };
-
-  const getElementIndent = (element) => {
-    if (element.elementType === "TITLE") return "ml-0";
-    if (element.elementType === "SUBTITLE") return "ml-4";
-    if (element.elementType === "FIELD") return "ml-8";
-    return "ml-0";
-  };
-
   const renderElement = (element, index) => {
     const isTitle = element.elementType === "TITLE";
     const isSubtitle = element.elementType === "SUBTITLE";
     const isField = element.elementType === "FIELD";
+    const isLocationPackage = element.elementType === "LOCATION_PACKAGE";
 
     return (
       <div
         key={element.id}
-        className={`flex items-center justify-between p-3 rounded-lg ${isTitle ? "bg-blue-50" : isSubtitle ? "bg-purple-50" : "bg-slate-50"} ${getElementIndent(element)}`}
+        className={`flex items-center justify-between p-3 rounded-lg ${
+          isTitle
+            ? "bg-blue-50"
+            : isSubtitle
+              ? "bg-purple-50"
+              : isField
+                ? "bg-slate-50"
+                : "bg-orange-50"
+        }`}
       >
         <div className="flex items-center gap-3 flex-1">
           <span className="text-sm font-medium text-slate-500">
             {index + 1}.
-          </span>
-          {getElementIcon(element.elementType)}
-          <span
-            className={`font-medium ${isTitle ? "text-blue-700" : isSubtitle ? "text-purple-700" : "text-slate-700"}`}
-          >
-            {element.fieldLabel || element.titleName}
           </span>
           <span className="text-xs text-slate-500">
             {isTitle
               ? "(Title)"
               : isSubtitle
                 ? "(Subtitle)"
-                : `(${element.fieldType})`}
+                : isField
+                  ? `(${element.fieldType})`
+                  : "(Location Package)"}
           </span>
-          {isField && element.validation?.required && (
-            <span className="text-xs text-red-500">*Required</span>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -382,19 +377,7 @@ export default function FormBuilder() {
   };
 
   if (loading) {
-    return (
-      <div className="page-container">
-        <div className="text-center py-12">Loading form elements...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="page-container">
-        <div className="text-center py-12 text-red-600">{error}</div>
-      </div>
-    );
+    return <div className="text-center py-12">Loading form elements...</div>;
   }
 
   return (
@@ -411,37 +394,33 @@ export default function FormBuilder() {
             <option value="FORM2A">Form 2A - RVS</option>
             <option value="FORM2B">Form 2B - Detailed</option>
           </select>
-          <div className="flex gap-2">
-            <button
-              onClick={() => openAddModal("TITLE")}
-              className="btn-secondary flex items-center gap-1"
-            >
-              <Type className="w-4 h-4" />
-              Add Title
-            </button>
-            <button
-              onClick={() => openAddModal("SUBTITLE")}
-              className="btn-secondary flex items-center gap-1"
-            >
-              <Edit2 className="w-4 h-4" />
-              Add Subtitle
-            </button>
-            <button
-              onClick={() => openAddModal("FIELD")}
-              className="btn-primary flex items-center gap-1"
-            >
-              <Plus className="w-4 h-4" />
-              Add Field
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setEditingElement(null);
+              setNewElement({
+                titleName: "",
+                fieldKey: "",
+                fieldLabel: "",
+                fieldType: "TEXT",
+                options: "",
+                scoreConfig: "",
+                required: false,
+                parentId: null,
+              });
+              setShowModal(true);
+            }}
+            className="btn-primary flex items-center gap-1"
+          >
+            <Plus className="w-4 h-4" />
+            Add Field
+          </button>
         </div>
       </div>
 
       <div className="glass-card p-6">
         {elements.length === 0 ? (
           <div className="text-center py-8 text-slate-500">
-            No elements yet. Add a Title, Subtitle, or Field to start building
-            your form.
+            No elements yet.
           </div>
         ) : (
           <div className="space-y-2">
@@ -450,18 +429,19 @@ export default function FormBuilder() {
         )}
       </div>
 
-      {/* Add/Edit Element Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="glass-card p-6 max-w-md w-full">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-blue-600">
                 {editingElement ? "Edit" : "Add"}{" "}
-                {modalType === "TITLE"
+                {newElement.fieldType === "TITLE"
                   ? "Title"
-                  : modalType === "SUBTITLE"
+                  : newElement.fieldType === "SUBTITLE"
                     ? "Subtitle"
-                    : "Field"}
+                    : newElement.fieldType === "LOCATION_PACKAGE"
+                      ? "Location Package"
+                      : "Field"}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
@@ -471,10 +451,38 @@ export default function FormBuilder() {
               </button>
             </div>
             <div className="space-y-3">
-              {(modalType === "TITLE" || modalType === "SUBTITLE") && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Field Type
+                </label>
+                <select
+                  className="input-field"
+                  value={newElement.fieldType}
+                  onChange={(e) =>
+                    setNewElement({ ...newElement, fieldType: e.target.value })
+                  }
+                >
+                  <option value="TEXT">Text</option>
+                  <option value="NUMBER">Number</option>
+                  <option value="SELECT">Select</option>
+                  <option value="CHECKBOX">Checkbox</option>
+                  <option value="DATE">Date</option>
+                  <option value="BOOLEAN">Boolean</option>
+                  {formType === "FORM1" && !hasLocationPackage && (
+                    <option value="LOCATION_PACKAGE">
+                      Location Package (Map + Read‑Only Fields)
+                    </option>
+                  )}
+                </select>
+              </div>
+
+              {/* ─── Label Input for TITLE, SUBTITLE, LOCATION_PACKAGE ── */}
+              {(newElement.fieldType === "TITLE" ||
+                newElement.fieldType === "SUBTITLE" ||
+                newElement.fieldType === "LOCATION_PACKAGE") && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {modalType === "TITLE" ? "Title Name" : "Subtitle Name"}
+                    Label
                   </label>
                   <input
                     type="text"
@@ -487,14 +495,16 @@ export default function FormBuilder() {
                       })
                     }
                     placeholder={
-                      modalType === "TITLE"
-                        ? "e.g., Screener Information"
-                        : "e.g., Personal Details"
+                      newElement.fieldType === "LOCATION_PACKAGE"
+                        ? "e.g., Building Location"
+                        : "e.g., Screener Information"
                     }
                   />
                 </div>
               )}
-              {modalType === "FIELD" && (
+
+              {/* ─── Field Inputs for regular FIELDS ────────────────── */}
+              {newElement.fieldType === "FIELD" && (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -529,28 +539,6 @@ export default function FormBuilder() {
                       }
                       placeholder="e.g., Building Name"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Field Type
-                    </label>
-                    <select
-                      className="input-field"
-                      value={newElement.fieldType}
-                      onChange={(e) =>
-                        setNewElement({
-                          ...newElement,
-                          fieldType: e.target.value,
-                        })
-                      }
-                    >
-                      <option value="TEXT">Text</option>
-                      <option value="NUMBER">Number</option>
-                      <option value="SELECT">Select</option>
-                      <option value="CHECKBOX">Checkbox</option>
-                      <option value="DATE">Date</option>
-                      <option value="BOOLEAN">Boolean</option>
-                    </select>
                   </div>
                   {newElement.fieldType === "SELECT" && (
                     <>

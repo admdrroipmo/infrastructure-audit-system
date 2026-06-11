@@ -1,4 +1,6 @@
 {
-  "/admin/formBuilder/page": "app/admin/formBuilder/page.js",
-  "/forms/form1/page": "app/forms/form1/page.js"
+  "/login/page": "app/login/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/superadmin/page": "app/superadmin/page.js",
+  "/admin/users/page": "app/admin/users/page.js"
 }

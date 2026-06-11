@@ -24,7 +24,13 @@ export default function LoginPage() {
       if (res.ok) {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        router.push("/dashboard");
+
+        // Redirect based on access level
+        if (data.user.accessLevel === "SUPER_ADMIN") {
+          router.push("/superadmin");
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         setError(data.error || "Login failed");
       }

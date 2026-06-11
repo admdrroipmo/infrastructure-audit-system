@@ -1,107 +1,127 @@
-generator client { 
-  provider = "prisma-client-js" 
-} 
- 
-datasource db { 
-  provider = "postgresql" 
-  url = env("DATABASE_URL") 
-  directUrl = env("DIRECT_URL") 
-} 
- 
-model PsgcLocation { 
-  id          String         @id @default(cuid()) 
-  psgcCode    String         @unique 
-  name        String 
-  type        String 
-  parentId    String? 
-  parent      PsgcLocation?  @relation("PsgcHierarchy", fields: [parentId], references: [id]) 
-  children    PsgcLocation[] @relation("PsgcHierarchy") 
-  users       User[] 
-  buildings   Building[] 
-  createdAt   DateTime       @default(now()) 
-  updatedAt   DateTime       @updatedAt 
-} 
- 
-model User { 
-  id           String     @id @default(cuid()) 
-  fullName     String 
-  email        String     @unique 
-  passwordHash String 
-  psgcId       String 
-  psgc         PsgcLocation @relation(fields: [psgcId], references: [id]) 
-  accessLevel  String 
-  isActive     Boolean    @default(true) 
-  createdAt    DateTime   @default(now()) 
-  updatedAt    DateTime   @updatedAt 
-} 
- 
-model Building { 
-  id               String   @id @default(cuid()) 
-  buildingName     String 
-  psgcId           String 
-  psgc             PsgcLocation @relation(fields: [psgcId], references: [id]) 
-  assessmentStatus String 
-  latitude         Float? 
-  longitude        Float? 
-  address          String? 
-  form1            Form1? 
-  form2A           Form2A? 
-  form2B           Form2B? 
-  createdAt        DateTime   @default(now()) 
-  updatedAt        DateTime   @updatedAt 
-} 
- 
-model Form1 { 
-  id          String   @id @default(cuid()) 
-  buildingId  String   @unique 
-  building    Building @relation(fields: [buildingId], references: [id], onDelete: Cascade) 
-  data        Json 
-  status      String 
-  createdAt   DateTime @default(now()) 
-  updatedAt   DateTime @updatedAt 
-} 
- 
-model Form2A { 
-  id          String   @id @default(cuid()) 
-  buildingId  String   @unique 
-  building    Building @relation(fields: [buildingId], references: [id], onDelete: Cascade) 
-  data        Json 
-  score       Float 
-  status      String 
-  createdAt   DateTime @default(now()) 
-  updatedAt   DateTime @updatedAt 
-} 
- 
-model Form2B { 
-  id                String   @id @default(cuid()) 
-  buildingId        String   @unique 
-  building          Building @relation(fields: [buildingId], references: [id], onDelete: Cascade) 
-  data              Json 
-  structuralScore   Float 
-  maintenanceScore  Float 
-  finalStatus       String 
-  status            String 
-  createdAt         DateTime @default(now()) 
-  updatedAt         DateTime @updatedAt 
-} 
- 
-model FormulaConfig { 
-  id              String   @id @default(cuid()) 
-  threshold       Float 
-  structuralWeights Json 
-  maintenanceWeights Json 
-  structuralThreshold Float 
-  maintenanceThreshold Float 
-  isActive        Boolean  @default(true) 
-  createdAt       DateTime @default(now()) 
-  updatedAt       DateTime @updatedAt 
-} 
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── ENUMS ──────────────────────────────────────────────────────
+enum AccessLevel {
+  SUPER_ADMIN
+  ADMIN
+  ENCODER
+  VIEWER
+}
+
+// ─── MODELS ────────────────────────────────────────────────────
+model PsgcLocation {
+  id          String         @id @default(cuid())
+  psgcCode    String         @unique
+  name        String
+  type        String
+  parentId    String?
+  parent      PsgcLocation?  @relation("PsgcHierarchy", fields: [parentId], references: [id])
+  children    PsgcLocation[] @relation("PsgcHierarchy")
+  users       User[]
+  buildings   Building[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model User {
+  id           String     @id @default(cuid())
+  fullName     String
+  email        String     @unique
+  passwordHash String
+  psgcId       String
+  psgc         PsgcLocation @relation(fields: [psgcId], references: [id])
+  accessLevel  AccessLevel
+  userType     String?    // "LIAT", "LILHUB", or "CENTRAL"
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  locationType  String? // "REGION", "PROVINCE", "CITY", "MUNICIPALITY", "HUC"
+}
+
+model Building {
+  id               String   @id @default(cuid())
+  buildingName     String
+  psgcId           String
+  psgc             PsgcLocation @relation(fields: [psgcId], references: [id])
+  assessmentStatus String
+  latitude         Float?
+  longitude        Float?
+  address          String?
+  form1            Form1?
+  form2A           Form2A?
+  form2B           Form2B?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // ─── NEW WORKFLOW FIELDS ──────────────────────────────────────────────
+  currentLevel     String   @default("LILHUB")   // LILHUB, LIAT, CENTRAL
+  submissionStatus String   @default("DRAFT")    // DRAFT, PENDING, UNDER_REVIEW, APPROVED, REJECTED, RETURNED_FOR_CORRECTION
+  rejectionReason  String?
+  rejectedByLevel  String?  // LILHUB, LIAT, CENTRAL
+  submittedAt      DateTime?
+  approvedAt       DateTime?
+  rejectedAt       DateTime?
+}
+
+model Form1 {
+  id          String   @id @default(cuid())
+  buildingId  String   @unique
+  building    Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  data        Json
+  status      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Form2A {
+  id          String   @id @default(cuid())
+  buildingId  String   @unique
+  building    Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  data        Json
+  score       Float
+  status      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Form2B {
+  id                String   @id @default(cuid())
+  buildingId        String   @unique
+  building          Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  data              Json
+  structuralScore   Float
+  maintenanceScore  Float
+  finalStatus       String
+  status            String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model FormulaConfig {
+  id              String   @id @default(cuid())
+  threshold       Float
+  structuralWeights Json
+  maintenanceWeights Json
+  structuralThreshold Float
+  maintenanceThreshold Float
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
 
 model FormField {
   id          String     @id @default(cuid())
   formType    String
   elementType String     // "TITLE", "SUBTITLE", "FIELD"
-  fieldKey    String?    // Make optional
+  fieldKey    String?    // optional for TITLE/SUBTITLE
   fieldLabel  String?
   fieldType   String?
   options     Json?

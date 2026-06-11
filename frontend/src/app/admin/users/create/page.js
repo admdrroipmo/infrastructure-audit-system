@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default function CreateUserPage() {
   const router = useRouter();
@@ -10,6 +12,8 @@ export default function CreateUserPage() {
     password: "",
     psgcId: "",
     accessLevel: "ENCODER",
+    userType: "",
+    locationType: "",
   });
   const [psgcLocations, setPsgcLocations] = useState([]);
 
@@ -49,6 +53,16 @@ export default function CreateUserPage() {
 
   return (
     <div className="page-container max-w-2xl">
+      <div className="mb-4">
+        <Link
+          href="/admin/users"
+          className="btn-secondary flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to User Management
+        </Link>
+      </div>
+
       <div className="glass-card p-8">
         <h1 className="text-2xl font-bold text-blue-600 mb-6">
           Create New User
@@ -131,6 +145,42 @@ export default function CreateUserPage() {
               <option value="ENCODER">Encoder</option>
               <option value="ADMIN">Admin</option>
               <option value="VIEWER">Viewer</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              User Type
+            </label>
+            <select
+              className="input-field"
+              value={formData.userType}
+              onChange={(e) =>
+                setFormData({ ...formData, userType: e.target.value })
+              }
+              required
+            >
+              <option value="">Select User Type</option>
+              <option value="LIAT">LIAT (Region)</option>
+              <option value="LILHUB">LILhub (Local)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Location Type
+            </label>
+            <select
+              className="input-field"
+              value={formData.locationType}
+              onChange={(e) =>
+                setFormData({ ...formData, locationType: e.target.value })
+              }
+              required
+            >
+              <option value="">Select Location Type</option>
+              <option value="REGION">Region</option>
+              <option value="PROVINCE">Province / HUC</option>
+              <option value="CITY">City</option>
+              <option value="MUNICIPALITY">Municipality</option>
             </select>
           </div>
           <div className="flex gap-3">
